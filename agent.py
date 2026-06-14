@@ -11,7 +11,6 @@ class SelfEvolvingAgent:
 
     def _load_model(self):
         print(f"Loading Llama model from {self.model_path}...")
-        # Assuming a GGUF model file. n_ctx can be adjusted based on model and task.
         self.llm = Llama(model_path=self.model_path, n_ctx=2048, verbose=False)
         print("Llama model loaded.")
 
@@ -25,48 +24,56 @@ class SelfEvolvingAgent:
             print("No existing memory found. Starting with a fresh memory.")
 
     def _save_memory(self, new_experience):
-        self.memory += "\n" + new_experience
+        # تم تعديل التنسيق هنا ليكون أوضح في ملف الذاكرة
+        self.memory += "\n- " + new_experience.strip()
         with open(self.memory_file, "w", encoding="utf-8") as f:
             f.write(self.memory)
         print(f"Memory updated and saved to {self.memory_file}")
 
     def run_task(self, task_prompt):
         print(f"\nAgent received task: {task_prompt}")
-        prompt = f"""You are a self-evolving AI agent. Your current memory: {self.memory} Your goal is to complete the task and then reflect on what you learned to improve your future performance. You MUST follow this format exactly: Agent's Response: [Your answer here] Reflection: [Your thoughts on the process] New Experience: [A concise lesson or fact to add to your memory] Task: {task_prompt} """
-        output = self.llm(prompt, max_tokens=512, stop=["Task:", "Agent's Response:"], echo=False)
+        prompt = f"""You are a self-evolving AI agent. Your current memory: {self.memory} 
+Your goal is to complete the task and then reflect on what you learned to improve your future performance. 
+You MUST follow this format exactly: 
+Agent's Response: [Your answer here] 
+Reflection: [Your thoughts on the process] 
+New Experience: [A concise lesson or fact to add to your memory] 
+
+Task: {task_prompt} """
+
+        # تم تقليل الكلمات التوقف (stop) لضمان أن النموذج يكمل كتابة التجربة الجديدة
+        output = self.llm(prompt, max_tokens=512, stop=["Task:"], echo=False)
         response_text = output["choices"][0]["text"].strip()
         print(f"\nAgent's Raw Output:\n{response_text}")
 
-        # Attempt to parse response and reflection
+        # --- بداية الإصلاح الجذري لمشكلة الحفظ ---
         agent_response = ""
         reflection = ""
         new_experience = ""
 
-        # Simple parsing based on keywords
-        parts = response_text.split("Reflection:")
-        agent_response = parts[0].strip()
-        if len(parts) > 1:
-            reflection_parts = parts[1].split("New Experience:")
-            reflection = reflection_parts[0].strip()
-            if len(reflection_parts) > 1:
-                new_experience = reflection_parts[1].strip()
+        # تحويل النص لصغير للبحث فقط، لكن الاستخراج يتم من النص الأصلي
+        text_lower = response_text.lower()
+        ref_marker = "reflection:"
+        exp_marker = "new experience:"
 
-        if not reflection and "Reflection:" in response_text:
-            # Fallback if split didn't work as expected due to missing newline
-            reflection_start = response_text.find("Reflection:")
-            new_experience_start = response_text.find("New Experience:")
-            if reflection_start != -1:
-                agent_response = response_text[:reflection_start].strip()
-                if new_experience_start != -1 and new_experience_start > reflection_start:
-                    reflection = response_text[reflection_start + len("Reflection:"):new_experience_start].strip()
-                    new_experience = response_text[new_experience_start + len("New Experience:"):].strip()
-                else:
-                    reflection = response_text[reflection_start + len("Reflection:"):].strip()
+        ref_pos = text_lower.find(ref_marker)
+        exp_pos = text_lower.find(exp_marker)
+
+        if ref_pos != -1:
+            agent_response = response_text[:ref_pos].strip()
+            if exp_pos != -1 and exp_pos > ref_pos:
+                reflection = response_text[ref_pos + len(ref_marker):exp_pos].strip()
+                new_experience = response_text[exp_pos + len(exp_marker):].strip()
+            else:
+                reflection = response_text[ref_pos + len(ref_marker):].strip()
+        else:
+            agent_response = response_text.strip()
+        # --- نهاية الإصلاح ---
 
         print(f"\n--- Agent's Response ---\n{agent_response}")
         print(f"\n--- Agent's Reflection ---\n{reflection}")
 
-        if new_experience:
+        if new_experience and new_experience.lower() != "none":
             self._save_memory(new_experience)
         else:
             print("No new experience suggested for memory update.")
@@ -81,18 +88,11 @@ if __name__ == "__main__":
 
     agent = SelfEvolvingAgent(model_file)
     
-    tasks = [
-        "Explain the concept of photosynthesis in simple terms.",
-        "Write a short Python function to calculate the factorial of a number.",
-        "Describe the main challenges of renewable energy adoption.",
-        "Propose a simple solution for managing daily tasks effectively.",
-        "Summarize the key benefits of using version control systems like Git."
-    ]
+    # ضع هنا المهام التي تريد تنفيذها
+    tasks = ["Summarize the key benefits of using version control systems like Git."]
 
-    for i, task in enumerate(tasks):
-        print(f"\n==================== Running Task {i+1}/{len(tasks)} ====================")
+    for task in tasks:
         agent.run_task(task)
-        print("=================================================================")
 
     print("\nAgent has completed all tasks. Check agent_memory.txt for its updated memory.")
     
