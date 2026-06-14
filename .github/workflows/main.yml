@@ -1,104 +1,61 @@
 name: Self-Evolving Agent CI
 
-
-
 on:
-
   push:
-  
     branches: [ main ]
-    
   pull_request:
-  
     branches: [ main ]
-    
   workflow_dispatch:
-  
-
 
 jobs:
-
   build-and-run:
-  
     runs-on: ubuntu-latest
-    
-
+    permissions:
+      contents: write  # ضروري للسماح للأكشن بالكتابة في المستودع
 
     steps:
-    
     - uses: actions/checkout@v3
-    
-
+      with:
+        fetch-depth: 0  # جلب كامل التاريخ لضمان نجاح عملية الـ Push
 
     - name: Set up Python
-    
       uses: actions/setup-python@v4
-      
       with:
-      
         python-version: '3.10'
-        
-
 
     - name: Install dependencies
-    
       run: |
-      
         python -m pip install --upgrade pip
-        
         pip install llama-cpp-python
-        
-
 
     - name: Download small Llama model (for testing)
-    
       run: |
-      
-        # Using a tiny model for testing purposes in CI
-        
+        # تحميل نموذج صغير جداً للاختبار في بيئة CI
         wget https://huggingface.co/TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF/resolve/main/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf -O model.gguf
-        
-
 
     - name: Run Agent
-    
       env:
-      
         LLAMA_MODEL_PATH: ./model.gguf
-        
       run: |
-      
-        # Run the agent. Note: This might take some time or fail if resources are insufficient, 
-        
-        # but it serves as a basic CI check.
-        
+        # تشغيل الوكيل وتحديث ملف الذاكرة محلياً
         python agent.py
+
+    - name: Commit and Push changes
+      run: |
+        git config --global user.name "github-actions[bot]"
+        git config --global user.email "github-actions[bot]@users.noreply.github.com"
         
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+        # التأكد من وجود ملف الذاكرة وإضافته
+        if [ -f agent_memory.txt ]; then
+          git add agent_memory.txt
+          # التحقق إذا كانت هناك تغييرات فعلاً لتجنب الخطأ في حال لم يتعلم الوكيل شيئاً جديداً
+          if git diff --staged --quiet; then
+            echo "No changes in memory to commit."
+          else
+            git commit -m "Update agent memory with new experiences [skip ci]"
+            git push origin main
+          fi
+        else
+          echo "agent_memory.txt not found."
+        fi
+        
