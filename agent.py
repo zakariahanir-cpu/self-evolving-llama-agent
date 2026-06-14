@@ -33,9 +33,20 @@ class SelfEvolvingAgent:
 
     def run_task(self, task_prompt):
         print(f"\nAgent received task: {task_prompt}")
-        prompt = f"""You are a self-evolving AI agent. Your current memory is:\n{self.memory}\n\nBased on your memory and the following task, provide a detailed response or solution. After your response, reflect on the outcome and suggest a new experience to add to your memory for future improvement.\n\nTask: {task_prompt}\n\nAgent's Response:"""
+        prompt = f"""You are a self-evolving AI agent. 
+Your current memory:
+{self.memory}
 
-        output = self.llm(prompt, max_tokens=512, stop=["\nTask:", "Agent's Response:", "\nReflection:", "\nNew Experience:", "\n"], echo=False)
+Your goal is to complete the task and then reflect on what you learned to improve your future performance.
+You MUST follow this format exactly:
+Agent's Response: [Your answer here]
+Reflection: [Your thoughts on the process]
+New Experience: [A concise lesson or fact to add to your memory]
+
+Task: {task_prompt}
+"""
+
+        output = self.llm(prompt, max_tokens=512, stop=["Task:", "Agent's Response:"], echo=False)
         response_text = output["choices"][0]["text"].strip()
 
         print(f"\nAgent's Raw Output:\n{response_text}")
