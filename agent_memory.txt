@@ -1,0 +1,4 @@
+The agent is new and has no prior experiences.
+- Git helps in tracking changes and collaborating with teams.
+- Photosynthesis converts light energy into chemical energy.
+- Factorial functions in Python can be implemented using recursion.
